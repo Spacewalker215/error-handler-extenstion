@@ -1,7 +1,7 @@
 {
   "name": "error-handler-extension",
   "displayName": "Error Handler Extension",
-  "description": "Interprets console errors and provides friendly explanations using ChatGPT",
+  "description": "Automatically interprets console errors and provides friendly explanations using ChatGPT",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.60.0"
@@ -10,14 +10,29 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:extension.handleError"
+    "onStartupFinished"
   ],
   "main": "./extension.js",
   "contributes": {
     "commands": [{
-      "command": "extension.handleError",
-      "title": "Handle Error with ChatGPT"
-    }]
+      "command": "extension.toggleErrorHandler",
+      "title": "Toggle Friendly Error Handler"
+    }],
+    "configuration": {
+      "title": "Friendly Error Handler",
+      "properties": {
+        "friendlyErrorHandler.enableOnStartup": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the Friendly Error Handler on VS Code startup"
+        },
+        "friendlyErrorHandler.showWarning": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a warning about potential API usage costs on startup"
+        }
+      }
+    }
   },
   "scripts": {
     "lint": "eslint .",
