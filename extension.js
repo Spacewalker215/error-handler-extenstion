@@ -1,36 +1,51 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 const vscode = require('vscode');
+const { OpenAI } = require('openai');
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-
-/**
- * @param {vscode.ExtensionContext} context
- */
 function activate(context) {
+    console.log('Error Handler Extension is now active!');
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "error-handler-extenstion" is now active!');
+    let disposable = vscode.commands.registerCommand('extension.handleError', async function () {
+        // Get the active text editor
+        let editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage('No active text editor found');
+            return;
+        }
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with  registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('error-handler-extenstion.helloWorld', function () {
-		// The code you place here will be executed every time your command is executed
+        // Get the last line from the output channel (assuming it's the error message)
+        let outputChannel = vscode.window.createOutputChannel("Error Handler");
+        let document = editor.document;
+        let lastLine = document.lineAt(document.lineCount - 1);
+        let errorMessage = lastLine.text;
 
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from error-handler-extenstion!');
-	});
+        // Initialize OpenAI client
+        const openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+        });
 
-	context.subscriptions.push(disposable);
+        // Call ChatGPT API
+        try {
+            const completion = await openai.chat.completions.create({
+                messages: [
+                    { role: "system", content: "You are a helpful assistant that explains programming errors in a friendly and encouraging way." },
+                    { role: "user", content: `Please explain this error in a friendly and encouraging way: ${errorMessage}` }
+                ],
+                model: "gpt-3.5-turbo",
+            });
+
+            // Show the ChatGPT response
+            vscode.window.showInformationMessage(completion.choices[0].message.content);
+        } catch (error) {
+            vscode.window.showErrorMessage('Failed to get response from ChatGPT: ' + error.message);
+        }
+    });
+
+    context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
 function deactivate() {}
 
 module.exports = {
-	activate,
-	deactivate
+    activate,
+    deactivate
 }
