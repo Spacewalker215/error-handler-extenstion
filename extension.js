@@ -1,10 +1,17 @@
 const vscode = require('vscode');
 const { OpenAI } = require('openai');
+const child_process = require('child_process');
 
+/** @type {OpenAI} */
 let openai;
 let errorHandlerEnabled = false;
-let disposable;
+/** @type {vscode.OutputChannel} */
+let outputChannel;
 
+/**
+ * @param {vscode.ExtensionContext} context
+ * @returns {Promise<string>}
+ */
 async function getApiKey(context) {
     let apiKey = await context.secrets.get('openai-api-key');
     if (!apiKey) {
@@ -23,24 +30,35 @@ async function getApiKey(context) {
     return apiKey;
 }
 
-async function handleError(error) {
+/**
+ * @param {string} errorMessage
+ */
+async function handleError(errorMessage) {
     if (!errorHandlerEnabled) return;
 
     try {
         const completion = await openai.chat.completions.create({
             messages: [
                 { role: "system", content: "You are a helpful assistant that explains programming errors in a friendly and encouraging way." },
-                { role: "user", content: `Please explain this error in a friendly and encouraging way: ${error.message}` }
+                { role: "user", content: `Please explain this error in a friendly and encouraging way: ${errorMessage}` }
             ],
             model: "gpt-3.5-turbo",
         });
 
-        vscode.window.showInformationMessage(completion.choices[0].message.content);
+        const response = completion.choices[0].message.content;
+        outputChannel.appendLine('\n**************************************************');
+        outputChannel.appendLine('AI Assistant:');
+        outputChannel.appendLine(response);
+        outputChannel.appendLine('**************************************************\n');
+        outputChannel.show(true);
     } catch (apiError) {
         vscode.window.showErrorMessage('Failed to get response from ChatGPT: ' + apiError.message);
     }
 }
 
+/**
+ * @param {vscode.ExtensionContext} context
+ */
 async function toggleErrorHandler(context) {
     try {
         if (!openai) {
@@ -49,45 +67,54 @@ async function toggleErrorHandler(context) {
         }
 
         errorHandlerEnabled = !errorHandlerEnabled;
-        vscode.window.showInformationMessage(`Error Handler is now ${errorHandlerEnabled ? 'enabled' : 'disabled'}.`);
+        outputChannel.appendLine(`Error Handler is now ${errorHandlerEnabled ? 'enabled' : 'disabled'}.`);
+        outputChannel.show(true);
 
-        if (errorHandlerEnabled) {
-            startErrorListener();
-        } else {
-            stopErrorListener();
-        }
-
-        // Update the configuration
         await vscode.workspace.getConfiguration().update('friendlyErrorHandler.enableOnStartup', errorHandlerEnabled, vscode.ConfigurationTarget.Global);
     } catch (error) {
         vscode.window.showErrorMessage('Error: ' + error.message);
     }
 }
 
-function startErrorListener() {
-    if (!disposable) {
-        disposable = vscode.languages.onDidChangeDiagnostics((e) => {
-            for (const uri of e.uris) {
-                const diagnostics = vscode.languages.getDiagnostics(uri);
-                for (const diagnostic of diagnostics) {
-                    if (diagnostic.severity === vscode.DiagnosticSeverity.Error) {
-                        handleError(diagnostic);
-                    }
-                }
+/**
+ * @param {string} command
+ * @returns {Promise<void>}
+ */
+function runCode(command) {
+    return new Promise((resolve) => {
+        outputChannel.appendLine('Running code...');
+        outputChannel.show(true);
+        
+        const process = child_process.exec(command, { cwd: vscode.workspace.rootPath });
+        
+        process.stdout.on('data', (data) => {
+            outputChannel.append(data.toString());
+        });
+        
+        process.stderr.on('data', (data) => {
+            const errorMessage = data.toString();
+            outputChannel.append(errorMessage);
+            if (errorHandlerEnabled) {
+                handleError(errorMessage);
             }
         });
-    }
+        
+        process.on('close', (code) => {
+            if (code !== 0) {
+                outputChannel.appendLine(`Process exited with code ${code}`);
+            }
+            resolve();
+        });
+    });
 }
 
-function stopErrorListener() {
-    if (disposable) {
-        disposable.dispose();
-        disposable = null;
-    }
-}
-
+/**
+ * @param {vscode.ExtensionContext} context
+ */
 async function activate(context) {
     console.log('Error Handler Extension is now active!');
+
+    outputChannel = vscode.window.createOutputChannel("Friendly Error Handler");
 
     const config = vscode.workspace.getConfiguration('friendlyErrorHandler');
     const enableOnStartup = config.get('enableOnStartup');
@@ -112,10 +139,41 @@ async function activate(context) {
 
     let toggleCommand = vscode.commands.registerCommand('extension.toggleErrorHandler', () => toggleErrorHandler(context));
     context.subscriptions.push(toggleCommand);
+
+    // Register a command to run code with the Error Handler
+    let runCodeCommand = vscode.commands.registerCommand('extension.runCodeWithErrorHandler', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (editor) {
+            const document = editor.document;
+            const fileName = document.fileName;
+            const fileExtension = fileName.split('.').pop();
+            
+            let command;
+            switch (fileExtension) {
+                case 'js':
+                    command = `node "${fileName}"`;
+                    break;
+                case 'py':
+                    command = `python "${fileName}"`;
+                    break;
+                // Add more cases for other file types as needed
+                default:
+                    vscode.window.showErrorMessage('Unsupported file type');
+                    return;
+            }
+            
+            await runCode(command);
+        } else {
+            vscode.window.showErrorMessage('No active text editor found');
+        }
+    });
+    context.subscriptions.push(runCodeCommand);
 }
 
 function deactivate() {
-    stopErrorListener();
+    if (outputChannel) {
+        outputChannel.dispose();
+    }
 }
 
 module.exports = {
