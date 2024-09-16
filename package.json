@@ -4,12 +4,26 @@
   "description": "Provides friendly explanations for coding errors using OpenAI's GPT. Supports JavaScript, Python, Java, C, C++, C#, Go, Ruby, PHP, TypeScript, Swift, R, and Scala.",
   "version": "0.0.1",
   "publisher": "Jayden Ruddock",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.60.0"
   },
   "categories": [
     "Other"
   ],
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Spacewalker215/error-handler-extenstion.git"
+  },
+  "homepage": "https://github.com/Spacewalker215/error-handler-extenstion/blob/main/README.md",
+  "bugs": {
+    "url": "https://github.com/Spacewalker215/error-handler-extenstion/issues"
+  },
+  "galleryBanner": {
+    "color": "#C80000",
+    "theme": "dark"
+  },
   "activationEvents": [
     "onStartupFinished"
   ],
