@@ -1,7 +1,7 @@
 {
   "name": "friendly-error-handler",
   "displayName": "Friendly Error Handler",
-  "description": "Provides friendly explanations for coding errors using OpenAI's GPT",
+  "description": "Provides friendly explanations for coding errors using OpenAI's GPT. Supports JavaScript, Python, Java, C, C++, C#, Go, Ruby, PHP, TypeScript, Swift, R, and Scala.",
   "version": "0.0.1",
   "publisher": "Jayden Ruddock",
   "engines": {
@@ -22,7 +22,7 @@
       },
       {
         "command": "extension.runCodeWithErrorHandler",
-        "title": "Run Code with Friendly Error Handler"
+        "title": "Run Code with Friendly Error Handler (Ctrl+Alt+X)"
       }
     ],
     "keybindings": [

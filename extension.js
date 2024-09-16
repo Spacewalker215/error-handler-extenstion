@@ -6,6 +6,7 @@ let openai;
 let errorHandlerEnabled = false;
 let outputChannel;
 let isRunning = false;
+let statusBarItem;
 
 async function getApiKey(context) {
     let apiKey = await context.secrets.get('openai-api-key');
@@ -60,6 +61,8 @@ async function toggleErrorHandler(context) {
         outputChannel.appendLine(`Error Handler is now ${errorHandlerEnabled ? 'enabled' : 'disabled'}.`);
         outputChannel.show(true);
 
+        updateStatusBarItem();
+
         await vscode.workspace.getConfiguration().update('friendlyErrorHandler.enableOnStartup', errorHandlerEnabled, vscode.ConfigurationTarget.Global);
     } catch (error) {
         vscode.window.showErrorMessage('Error: ' + error.message);
@@ -109,7 +112,7 @@ async function runCodeWithErrorHandler(context) {
         if (editor) {
             const document = editor.document;
             const fileName = document.fileName;
-            const fileExtension = fileName.split('.').pop();
+            const fileExtension = fileName.split('.').pop().toLowerCase();
             
             let command;
             switch (fileExtension) {
@@ -118,6 +121,39 @@ async function runCodeWithErrorHandler(context) {
                     break;
                 case 'py':
                     command = `python "${fileName}"`;
+                    break;
+                case 'java':
+                    command = `javac "${fileName}" && java "${fileName.replace('.java', '')}"`;
+                    break;
+                case 'c':
+                    command = `gcc "${fileName}" -o "${fileName.replace('.c', '')}" && "${fileName.replace('.c', '')}"`;
+                    break;
+                case 'cpp':
+                    command = `g++ "${fileName}" -o "${fileName.replace('.cpp', '')}" && "${fileName.replace('.cpp', '')}"`;
+                    break;
+                case 'cs':
+                    command = `dotnet run "${fileName}"`;
+                    break;
+                case 'go':
+                    command = `go run "${fileName}"`;
+                    break;
+                case 'rb':
+                    command = `ruby "${fileName}"`;
+                    break;
+                case 'php':
+                    command = `php "${fileName}"`;
+                    break;
+                case 'ts':
+                    command = `ts-node "${fileName}"`;
+                    break;
+                case 'swift':
+                    command = `swift "${fileName}"`;
+                    break;
+                case 'r':
+                    command = `Rscript "${fileName}"`;
+                    break;
+                case 'scala':
+                    command = `scala "${fileName}"`;
                     break;
                 default:
                     vscode.window.showErrorMessage('Unsupported file type');
@@ -133,10 +169,26 @@ async function runCodeWithErrorHandler(context) {
     }
 }
 
+function updateStatusBarItem() {
+    if (statusBarItem) {
+        statusBarItem.text = `$(bug) Error Handler: ${errorHandlerEnabled ? 'ON' : 'OFF'}`;
+        statusBarItem.tooltip = `Click to toggle Friendly Error Handler (Ctrl+Alt+X to run code)`;
+        statusBarItem.show();
+    }
+}
+
 function activate(context) {
     console.log('Friendly Error Handler Extension is now active!');
 
     outputChannel = vscode.window.createOutputChannel("Friendly Error Handler");
+
+    // Create status bar item
+    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    context.subscriptions.push(statusBarItem);
+    updateStatusBarItem();
+
+    // Show initial information message
+    vscode.window.showInformationMessage('Friendly Error Handler is active. Use Ctrl+Alt+X to run code with error explanations.');
 
     const config = vscode.workspace.getConfiguration('friendlyErrorHandler');
     const enableOnStartup = config.get('enableOnStartup');
@@ -164,11 +216,17 @@ function activate(context) {
 
     let runWithHandlerCommand = vscode.commands.registerCommand('extension.runCodeWithErrorHandler', () => runCodeWithErrorHandler(context));
     context.subscriptions.push(runWithHandlerCommand);
+
+    // Add click event to status bar item
+    statusBarItem.command = 'extension.toggleErrorHandler';
 }
 
 function deactivate() {
     if (outputChannel) {
         outputChannel.dispose();
+    }
+    if (statusBarItem) {
+        statusBarItem.dispose();
     }
 }
 
