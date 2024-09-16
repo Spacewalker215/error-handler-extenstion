@@ -33,7 +33,7 @@ async function handleError(errorMessage) {
     try {
         const completion = await openai.chat.completions.create({
             messages: [
-                { role: "system", content: "You are a helpful assistant that explains programming errors in a friendly and encouraging way." },
+                { role: "system", content: "You are a helpful assistant that explains programming errors in a friendly and encouraging way. Provide a single, concise explanation that covers all aspects of the error." },
                 { role: "user", content: `Please explain this error in a friendly and encouraging way: ${errorMessage}` }
             ],
             model: "gpt-3.5-turbo",
@@ -77,22 +77,23 @@ function runCode(command) {
         
         const process = child_process.exec(command, { cwd: vscode.workspace.rootPath });
         
+        let errorOutput = '';
+        
         process.stdout.on('data', (data) => {
             outputChannel.append(data.toString());
         });
         
         process.stderr.on('data', (data) => {
-            const errorMessage = data.toString();
-            console.log('Error detected:', errorMessage);
-            outputChannel.append(errorMessage);
-            if (errorHandlerEnabled) {
-                handleError(errorMessage);
-            }
+            errorOutput += data.toString();
+            outputChannel.append(data.toString());
         });
         
         process.on('close', (code) => {
             if (code !== 0) {
                 outputChannel.appendLine(`Process exited with code ${code}`);
+                if (errorHandlerEnabled && errorOutput) {
+                    handleError(errorOutput);
+                }
             }
             resolve();
         });
