@@ -2,16 +2,11 @@ const vscode = require('vscode');
 const { OpenAI } = require('openai');
 const child_process = require('child_process');
 
-/** @type {OpenAI} */
 let openai;
 let errorHandlerEnabled = false;
-/** @type {vscode.OutputChannel} */
 let outputChannel;
+let isRunning = false;
 
-/**
- * @param {vscode.ExtensionContext} context
- * @returns {Promise<string>}
- */
 async function getApiKey(context) {
     let apiKey = await context.secrets.get('openai-api-key');
     if (!apiKey) {
@@ -30,10 +25,8 @@ async function getApiKey(context) {
     return apiKey;
 }
 
-/**
- * @param {string} errorMessage
- */
 async function handleError(errorMessage) {
+    console.log('Handling error:', errorMessage, 'Handler enabled:', errorHandlerEnabled);
     if (!errorHandlerEnabled) return;
 
     try {
@@ -56,9 +49,6 @@ async function handleError(errorMessage) {
     }
 }
 
-/**
- * @param {vscode.ExtensionContext} context
- */
 async function toggleErrorHandler(context) {
     try {
         if (!openai) {
@@ -76,12 +66,9 @@ async function toggleErrorHandler(context) {
     }
 }
 
-/**
- * @param {string} command
- * @returns {Promise<void>}
- */
 function runCode(command) {
     return new Promise((resolve) => {
+        console.log('Running command:', command);
         outputChannel.appendLine('Running code...');
         outputChannel.show(true);
         
@@ -93,6 +80,7 @@ function runCode(command) {
         
         process.stderr.on('data', (data) => {
             const errorMessage = data.toString();
+            console.log('Error detected:', errorMessage);
             outputChannel.append(errorMessage);
             if (errorHandlerEnabled) {
                 handleError(errorMessage);
@@ -108,40 +96,15 @@ function runCode(command) {
     });
 }
 
-/**
- * @param {vscode.ExtensionContext} context
- */
-async function activate(context) {
-    console.log('Error Handler Extension is now active!');
+async function runCodeWithErrorHandler(context) {
+    if (isRunning) return;
+    isRunning = true;
 
-    outputChannel = vscode.window.createOutputChannel("Friendly Error Handler");
-
-    const config = vscode.workspace.getConfiguration('friendlyErrorHandler');
-    const enableOnStartup = config.get('enableOnStartup');
-    const showWarning = config.get('showWarning');
-
-    if (showWarning) {
-        const response = await vscode.window.showWarningMessage(
-            'The Friendly Error Handler extension may incur OpenAI API costs when active. Do you want to enable it?',
-            'Yes', 'No', 'Don\'t show again'
-        );
-
-        if (response === 'Don\'t show again') {
-            await config.update('showWarning', false, vscode.ConfigurationTarget.Global);
-        }
-
-        if (response === 'Yes') {
+    try {
+        if (!errorHandlerEnabled) {
             await toggleErrorHandler(context);
         }
-    } else if (enableOnStartup) {
-        await toggleErrorHandler(context);
-    }
 
-    let toggleCommand = vscode.commands.registerCommand('extension.toggleErrorHandler', () => toggleErrorHandler(context));
-    context.subscriptions.push(toggleCommand);
-
-    // Register a command to run code with the Error Handler
-    let runCodeCommand = vscode.commands.registerCommand('extension.runCodeWithErrorHandler', async () => {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
             const document = editor.document;
@@ -156,7 +119,6 @@ async function activate(context) {
                 case 'py':
                     command = `python "${fileName}"`;
                     break;
-                // Add more cases for other file types as needed
                 default:
                     vscode.window.showErrorMessage('Unsupported file type');
                     return;
@@ -166,8 +128,42 @@ async function activate(context) {
         } else {
             vscode.window.showErrorMessage('No active text editor found');
         }
-    });
-    context.subscriptions.push(runCodeCommand);
+    } finally {
+        isRunning = false;
+    }
+}
+
+function activate(context) {
+    console.log('Friendly Error Handler Extension is now active!');
+
+    outputChannel = vscode.window.createOutputChannel("Friendly Error Handler");
+
+    const config = vscode.workspace.getConfiguration('friendlyErrorHandler');
+    const enableOnStartup = config.get('enableOnStartup');
+    const showWarning = config.get('showWarning');
+
+    if (showWarning) {
+        vscode.window.showWarningMessage(
+            'The Friendly Error Handler extension may incur OpenAI API costs when active. Do you want to enable it?',
+            'Yes', 'No', 'Don\'t show again'
+        ).then(async response => {
+            if (response === 'Don\'t show again') {
+                await config.update('showWarning', false, vscode.ConfigurationTarget.Global);
+            }
+
+            if (response === 'Yes') {
+                await toggleErrorHandler(context);
+            }
+        });
+    } else if (enableOnStartup) {
+        toggleErrorHandler(context);
+    }
+
+    let toggleCommand = vscode.commands.registerCommand('extension.toggleErrorHandler', () => toggleErrorHandler(context));
+    context.subscriptions.push(toggleCommand);
+
+    let runWithHandlerCommand = vscode.commands.registerCommand('extension.runCodeWithErrorHandler', () => runCodeWithErrorHandler(context));
+    context.subscriptions.push(runWithHandlerCommand);
 }
 
 function deactivate() {
@@ -179,4 +175,4 @@ function deactivate() {
 module.exports = {
     activate,
     deactivate
-}
+};

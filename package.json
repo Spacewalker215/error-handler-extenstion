@@ -1,8 +1,9 @@
 {
-  "name": "error-handler-extension",
-  "displayName": "Error Handler Extension",
-  "description": "Interprets console errors and provides friendly explanations using ChatGPT",
+  "name": "friendly-error-handler",
+  "displayName": "Friendly Error Handler",
+  "description": "Provides friendly explanations for coding errors using OpenAI's GPT",
   "version": "0.0.1",
+  "publisher": "Jayden Ruddock",
   "engines": {
     "vscode": "^1.60.0"
   },
@@ -10,8 +11,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:extension.toggleErrorHandler",
-    "onCommand:extension.runCodeInErrorHandler"
+    "onStartupFinished"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -21,8 +21,16 @@
         "title": "Toggle Friendly Error Handler"
       },
       {
-        "command": "extension.runCodeInErrorHandler",
+        "command": "extension.runCodeWithErrorHandler",
         "title": "Run Code with Friendly Error Handler"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "extension.runCodeWithErrorHandler",
+        "key": "ctrl+alt+x",
+        "mac": "cmd+alt+x",
+        "when": "editorTextFocus"
       }
     ],
     "configuration": {
@@ -59,8 +67,5 @@
     "mocha": "^8.4.0",
     "typescript": "^4.3.2",
     "vscode-test": "^1.5.2"
-  },
-  "capabilities": {
-    "secretStorage": true
   }
 }
