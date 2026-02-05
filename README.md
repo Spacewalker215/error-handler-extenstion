@@ -79,9 +79,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 If you have any questions or need support, please open an issue on our GitHub repository
 
 Happy coding, and may your debugging sessions be friendlier than ever! 😊🚀
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
 
 ## Requirements
 Open A.I API Key
